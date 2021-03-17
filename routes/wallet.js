@@ -17,15 +17,5 @@ router.get('/', async function(req, res, next) {
     res.json(currentWallet);
 });
 
-// UPDATE - perform PUT request on http://localhost:3000/api/v1/cash/:id
-router.put('/:id', async function(req, res, next) {
-    console.log(req.body)
-    console.log(req.params)
-  
-    let currentWallet = await Wallet.update(req.body, {
-      where: {id: req.params.id}
-    });
-    res.json({currentWallet})
-  });
 
 module.exports = router;

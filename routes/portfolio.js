@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const {Portfolio} = require('../lib/models');
+const {Portfolio, Wallet} = require('../lib/models');
 const yahooStockPrices = require('yahoo-stock-prices')
 
 
@@ -12,22 +12,22 @@ const yahooStockPrices = require('yahoo-stock-prices')
 
 //Perform GET request on http://localhost:3000/api/v1/portfolio
 
-router.get('/', async function(req, res, next) {
-    let items = await Portfolio.findAll({})
-    console.log(items);
-    res.json(items);
-});
+//router.get('/', async function(req, res, next) {
+  //  let items = await Portfolio.findAll({})
+    //console.log(items);
+    //res.json(items);
+// });
 
 // READ - perform GET request on http://localhost:3000/api/v1/portfolio/:symbol
-router.get('/:id', async function(req, res, next) {
-    let stock = await Portfolio.findAll({
-        where: {
-            id: req.params.id
-        }
-    })
-    console.log(stock);
-    res.json(stock);
-});
+//router.get('/:id', async function(req, res, next) {
+  //  let stock = await Portfolio.findAll({
+    //    where: {
+      //      id: req.params.id
+        //}
+   // })
+    //console.log(stock);
+    //res.json(stock);
+//});
 
 // READ - perform GET request on http://localhost:3000/api/v1/portfolio/search/:symbol
 
@@ -45,16 +45,26 @@ router.get('/search/:symbol', async function(req, res, next) {
 
 
 //Create
-router.post('/', async function(req, res, next) {
+ router.post('/', async function(req, res, next) {
     console.log(req.body)
     let stock = await Portfolio.create(req.body);
+    // after this point, the purchase has been made
+    let currentWallet = await Wallet.findOne({});
+    if(currentWallet){
+        let currentWalletValue = currentWallet.value;
+        let amountSpent = req.body.quantity * req.body.price;
+        let newWalletValue = currentWalletValue - amountSpent;
+        console.log('newWalletValue', newWalletValue);
+        currentWallet.update({value: newWalletValue})
+    }
+
     // Stock.create(req.body)
     //     .then((stock) => {
     //         res.json({success: true});
     //     })
 
     res.json(stock);
-});
+}); 
 
 //Update
 router.put('/:id', async function(req, res, next) {
@@ -68,11 +78,37 @@ router.put('/:id', async function(req, res, next) {
     res.json(stock);
 });
 
-//Delete
+// DELETE
 router.delete('/:id', async function(req, res, next) {
     // console.log(req.params)
-    let stock = await Portfolio.destroy({where: {id: req.params.id}});
-    res.json(stock);
+
+    let currentStock = await Portfolio.findOne({where: {id: req.params.id}});
+    if(currentStock) {
+        let symbol = currentStock.symbol;
+        let quantity = currentStock.quantity;
+        const data = await yahooStockPrices.getCurrentData(symbol);
+        console.log(data)
+
+        let cashEarnedFromStockSale = parseInt(parseInt(quantity) * data.price);
+
+        let currentWallet = await Wallet.findOne({});
+        if(currentWallet){
+            let currentWalletValue = parseInt(currentWallet.value);
+            let newWalletValue = currentWalletValue + cashEarnedFromStockSale;
+            console.log('newWalletValue', newWalletValue);
+            await currentWallet.update({value: newWalletValue})
+        }
+
+        let stock = await Portfolio.destroy({where: {id: req.params.id}});
+        // update the wallet happens here
+        // res.json(stock);
+        res.json(stock);
+
+    }
+    // // let stock = await Portfolio.destroy({where: {id: req.params.id}});
+    // // update the wallet happens here
+    // // res.json(stock);
+    // res.json({});
 });
 
 /* GET users listing. */
